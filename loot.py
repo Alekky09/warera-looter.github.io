@@ -72,45 +72,52 @@ def get_all_regions():
 
 def get_all_battles():
     global battles
-    r = requests.post(
-        f"{API_BASE}/battle.getBattles",
-        headers=HEADERS,
-        json={
-            "isActive": True,
-            "limit": 100,
-            "direction": "forward",
-            "filter": "all",
-        },
-        timeout=30
-    )
-    r.raise_for_status()
-    battles_info = r.json()['result']['data']['items']
-    for battle in battles_info:
-        # Skip tournaments
-        if battle['type'] == 'tournament':
-            continue
-        battle_id = battle['_id']
-        region = regions[battle['defender']['region']]
-        defender_country = countries[battle['defender']['country']]
-        defender_damages = battle['currentRound']['defender']['damages'] or 0
-        defender_points = battle['currentRound']['defender']['points'] or 0
-        attacker_country = countries[battle['attacker']['country']]
-        attacker_damages = battle['currentRound']['attacker']['damages'] or 0
-        attacker_points = battle['currentRound']['attacker']['points'] or 0
-        current_round_id = battle['currentRound']['_id']
-        round_number = len(battle['rounds']) + 1
-        get_loot_threshold(
-            battle_id=battle_id,
-            round_id=current_round_id,
-            region=region,
-            defender_country=defender_country,
-            defender_damages=defender_damages,
-            defender_points=defender_points,
-            attacker_country=attacker_country,
-            attacker_damages=attacker_damages,
-            attacker_points=attacker_points,
-            round_number=round_number,
+    payload = {
+        "isActive": True,
+        "limit": 100,
+        "direction": "forward",
+        "filter": "all",
+    }
+    while True:
+        r = requests.post(
+            f"{API_BASE}/battle.getBattles",
+            headers=HEADERS,
+            json=payload,
+            timeout=30
         )
+        r.raise_for_status()
+        r = r.json()
+        battles_info = r['result']['data']['items']
+        for battle in battles_info:
+            # Skip tournaments
+            if battle['type'] == 'tournament':
+                continue
+            battle_id = battle['_id']
+            region = regions[battle['defender']['region']]
+            defender_country = countries[battle['defender']['country']]
+            defender_damages = battle['currentRound']['defender']['damages'] or 0
+            defender_points = battle['currentRound']['defender']['points'] or 0
+            attacker_country = countries[battle['attacker']['country']]
+            attacker_damages = battle['currentRound']['attacker']['damages'] or 0
+            attacker_points = battle['currentRound']['attacker']['points'] or 0
+            current_round_id = battle['currentRound']['_id']
+            round_number = len(battle['rounds']) + 1
+            get_loot_threshold(
+                battle_id=battle_id,
+                round_id=current_round_id,
+                region=region,
+                defender_country=defender_country,
+                defender_damages=defender_damages,
+                defender_points=defender_points,
+                attacker_country=attacker_country,
+                attacker_damages=attacker_damages,
+                attacker_points=attacker_points,
+                round_number=round_number,
+            )
+        if next_cursor := r['result']['data'].get('nextCursor'):
+            payload['cursor'] = next_cursor
+        else:
+            break
 
 
 def get_loot_threshold(
